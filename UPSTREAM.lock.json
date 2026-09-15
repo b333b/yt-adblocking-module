@@ -1,0 +1,32 @@
+{
+  "fingerprint": "56049213c45948b361cb140512623c9050c1af5f4d743f6cbf188a0ee0125953",
+  "guardVersion": "1.0.0",
+  "fork": {
+    "owner": "b333b",
+    "repo": "yt-adblocking-module",
+    "branch": "main"
+  },
+  "upstream": {
+    "repo": "https://github.com/Maasea/sgmodule.git",
+    "commit": "65075cdb388fc5e3094afd7e7314c67b243f3525",
+    "commitDate": "2026-07-19T16:33:52+08:00"
+  },
+  "module": {
+    "source": "YouTube.Enhance.sgmodule",
+    "output": "YouTubeAds.sgmodule",
+    "upstreamSha256": "9c7464733c54417da36aff09482d1287cee5ecd531ad856842912704b5b3f64d"
+  },
+  "license": {
+    "upstreamSha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+  },
+  "files": {
+    "Script/Youtube/youtube.response.js": {
+      "upstreamSha256": "f98483d5f5017514f82502253c0db5ce2d4ffb7839887aa2cadc22666f5a7f12",
+      "builtSha256": "c6c11c4c66910eda071491fbada91bd88e6af2f680d58780846472e84cb539c6"
+    },
+    "Script/Youtube/youtube.request.js": {
+      "upstreamSha256": "3ecca15e06e76a31720092c581180f648ef2c45e494644941ba985c878efbb26",
+      "builtSha256": "b6c71fece6e0d251bd7b5a0c475159941f542046597984f9712a9c977052af4d"
+    }
+  }
+}
