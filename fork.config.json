@@ -1,0 +1,39 @@
+{
+  "guardVersion": "1.0.0",
+  "upstream": {
+    "repo": "https://github.com/Maasea/sgmodule.git",
+    "branch": "master",
+    "rawPrefixes": [
+      "https://raw.githubusercontent.com/Maasea/sgmodule/",
+      "https://github.com/Maasea/sgmodule/raw/"
+    ]
+  },
+  "module": {
+    "source": "YouTube.Enhance.sgmodule",
+    "output": "YouTubeAds.sgmodule",
+    "nameSuffix": " (relay-free fork)"
+  },
+  "fork": {
+    "branch": "main"
+  },
+  "allowedHosts": [
+    "googlevideo.com",
+    "youtube.com",
+    "googleapis.com",
+    "ytimg.com",
+    "ggpht.com",
+    "gstatic.com"
+  ],
+  "knownUpstreamRelays": [
+    "init-stream.maasea.workers.dev",
+    "stream.maasea.workers.dev"
+  ],
+  "benignStringHosts": [
+    "github.com"
+  ],
+  "onesieCache": {
+    "storeKey": "YouTubeConfig",
+    "videoKey": "youtube",
+    "musicKey": "youtubeMusic"
+  }
+}
