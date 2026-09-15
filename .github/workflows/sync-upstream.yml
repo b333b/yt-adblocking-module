@@ -1,0 +1,97 @@
+name: Sync upstream (relay-free)
+
+on:
+  schedule:
+    - cron: "23 */6 * * *"   # every 6 hours
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Rebuild even if upstream is unchanged"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: false
+
+env:
+  # direct = verified builds go straight to the default branch (fully automatic)
+  # pr     = verified builds open a pull request for you to merge
+  PUBLISH_MODE: direct
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch upstream
+        run: |
+          REPO=$(node -p "require('./fork.config.json').upstream.repo")
+          BRANCH=$(node -p "require('./fork.config.json').upstream.branch")
+          git clone --quiet --depth 1 --single-branch --branch "$BRANCH" "$REPO" "$RUNNER_TEMP/upstream"
+          echo "UPSTREAM_SHA=$(git -C "$RUNNER_TEMP/upstream" rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Build
+        run: node tools/build.mjs --upstream "$RUNNER_TEMP/upstream" ${{ inputs.force && '--force' || '' }}
+
+      - name: Anything to publish?
+        id: diff
+        run: |
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No relevant upstream change."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Verify
+        if: steps.diff.outputs.changed == 'true'
+        run: node tools/verify.mjs --upstream "$RUNNER_TEMP/upstream" --report "$RUNNER_TEMP/report.md"
+
+      - name: Publish (direct)
+        if: steps.diff.outputs.changed == 'true' && env.PUBLISH_MODE == 'direct'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          { echo "sync: Maasea/sgmodule@${UPSTREAM_SHA::8}"; echo; cat "$RUNNER_TEMP/report.md"; } > "$RUNNER_TEMP/msg.txt"
+          git add -A
+          git commit --quiet -F "$RUNNER_TEMP/msg.txt"
+          git push --quiet
+
+      - name: Publish (pull request)
+        if: steps.diff.outputs.changed == 'true' && env.PUBLISH_MODE == 'pr'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          BR="sync/${UPSTREAM_SHA::12}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch --quiet -c "$BR"
+          git add -A
+          git commit --quiet -m "sync: Maasea/sgmodule@${UPSTREAM_SHA::8}"
+          git push --quiet --force origin "$BR"
+          if ! gh pr view "$BR" > /dev/null 2>&1; then
+            gh pr create --head "$BR" --base "${{ github.event.repository.default_branch }}" \
+              --title "Sync Maasea/sgmodule@${UPSTREAM_SHA::8}" --body-file "$RUNNER_TEMP/report.md"
+          fi
+
+      - name: Open issue if the sync needs review
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TITLE="Upstream sync needs review: Maasea/sgmodule@${UPSTREAM_SHA::8}"
+          BODY="$RUNNER_TEMP/report.md"
+          [ -f "$BODY" ] || echo "The build failed before verification ran. Logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" > "$BODY"
+          printf '\n\nNothing was published. Run: %s\n' "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> "$BODY"
+          EXISTING=$(gh issue list --state open --search "\"$TITLE\" in:title" --json number --jq '.[0].number')
+          if [ -z "$EXISTING" ]; then
+            gh issue create --title "$TITLE" --body-file "$BODY"
+          fi
