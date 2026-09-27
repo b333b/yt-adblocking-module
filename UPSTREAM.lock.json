@@ -1,6 +1,6 @@
 {
-  "fingerprint": "56049213c45948b361cb140512623c9050c1af5f4d743f6cbf188a0ee0125953",
-  "guardVersion": "1.0.0",
+  "fingerprint": "6ad7f217129990849d241ce3f5f7bdb73c46bb5991d1ce4d17116c07d4859c7d",
+  "guardVersion": "1.1.0",
   "fork": {
     "owner": "b333b",
     "repo": "yt-adblocking-module",
@@ -19,14 +19,20 @@
   "license": {
     "upstreamSha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
   },
+  "mitm": {
+    "runOn": [
+      "googlevideo.com",
+      "youtubei.googleapis.com"
+    ]
+  },
   "files": {
     "Script/Youtube/youtube.response.js": {
       "upstreamSha256": "f98483d5f5017514f82502253c0db5ce2d4ffb7839887aa2cadc22666f5a7f12",
-      "builtSha256": "c6c11c4c66910eda071491fbada91bd88e6af2f680d58780846472e84cb539c6"
+      "builtSha256": "172a9ed86f66eba68cc54cd9a255f618d54acc93e45d7e7a6933a1e370e6807c"
     },
     "Script/Youtube/youtube.request.js": {
       "upstreamSha256": "3ecca15e06e76a31720092c581180f648ef2c45e494644941ba985c878efbb26",
-      "builtSha256": "b6c71fece6e0d251bd7b5a0c475159941f542046597984f9712a9c977052af4d"
+      "builtSha256": "893d2b7059d080f5784275dd4b7bf565b27c6c6ad7edce28d931f761f541ae82"
     }
   }
 }
