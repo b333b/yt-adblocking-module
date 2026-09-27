@@ -5,6 +5,10 @@ Chats and Claude Code do not share conversation history: this file is the shared
 memory. Update it after any meaningful change. The repo is public, so keep
 personal data out of it.
 
+## Git
+
+- Always commit and push directly to `main`. Do not use feature branches or open pull requests.
+
 ## What this repo is
 
 A relay-free fork of the YouTube (Music) Enhance module from
