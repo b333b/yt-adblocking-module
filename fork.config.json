@@ -1,5 +1,5 @@
 {
-  "guardVersion": "1.0.0",
+  "guardVersion": "1.1.0",
   "upstream": {
     "repo": "https://github.com/Maasea/sgmodule.git",
     "branch": "master",
@@ -23,6 +23,10 @@
     "ytimg.com",
     "ggpht.com",
     "gstatic.com"
+  ],
+  "allowedMitmHosts": [
+    "*.googlevideo.com",
+    "youtubei.googleapis.com"
   ],
   "knownUpstreamRelays": [
     "init-stream.maasea.workers.dev",

@@ -33,6 +33,9 @@ const referenced = new Map(); // fullUrl -> relPath
 for (const m of moduleSrc.matchAll(refRe)) referenced.set(m[0], safeRel(m[1]));
 if (referenced.size === 0) fail(`No upstream script references found in ${cfg.module.source}.`);
 
+const runOn = mitmHosts(moduleSrc);
+if (runOn.length === 0) fail(`No [MITM] hostname entries found in ${cfg.module.source}; the guard would refuse to run.`);
+
 const relPaths = [...new Set(referenced.values())];
 const inputs = relPaths.map((p) => {
   const abs = join(UP, p);
@@ -65,7 +68,8 @@ for (const { path, buf } of inputs) {
       .replaceAll("__UPSTREAM_PATH__", path)
       .replaceAll("__ALLOW_LIST__", allowText)
       .replace("__ALLOW_JSON__", () => JSON.stringify(cfg.allowedHosts))
-      .replace("__ONESIE_JSON__", () => JSON.stringify(cfg.onesieCache ?? null));
+      .replace("__ONESIE_JSON__", () => JSON.stringify(cfg.onesieCache ?? null))
+      .replace("__RUN_ON_JSON__", () => JSON.stringify(runOn));
     // function replacer: upstream code is full of `$` sequences that must stay literal
     out = Buffer.from(filled.replace("__UPSTREAM_CODE__", () => code.replace(/\s*$/, "\n")), "utf8");
   }
@@ -111,6 +115,7 @@ const lock = {
   upstream: { repo: cfg.upstream.repo, commit: upstreamSha, commitDate: upstreamDate },
   module: { source: cfg.module.source, output: cfg.module.output, upstreamSha256: sha256(moduleSrc) },
   license: { upstreamSha256: sha256(readFileSync(lic)) },
+  mitm: { runOn },
   files,
 };
 writeFileSync(lockPath, JSON.stringify(lock, null, 2) + "\n");
@@ -127,6 +132,18 @@ function parseArgs(a) {
   return o;
 }
 function need(v, what) { if (!v || v === true) fail(`Missing ${what}`); return v; }
+// Extracts the [MITM] hostname list (minus %APPEND%/%INSERT% markers and
+// "-host" exclusions) so the guard can refuse to run outside those hosts.
+function mitmHosts(moduleText) {
+  const section = (moduleText.match(/\[MITM\]([\s\S]*?)(?:\r?\n\[|$)/) || [, ""])[1];
+  const m = /^\s*hostname\s*=\s*(.*)$/im.exec(section);
+  if (!m) return [];
+  return m[1]
+    .replace(/%APPEND%|%INSERT%/g, "")
+    .split(",")
+    .map((s) => s.trim().replace(/^\*\./, "")) // hostAllowed() already matches subdomains of a bare domain
+    .filter((s) => s && !s.startsWith("-"));
+}
 function safeRel(p) {
   const n = normalize(decodeURIComponent(p));
   if (n.startsWith("..") || n.startsWith(sep) || n.includes(`${sep}..${sep}`)) fail(`Unsafe path in module: ${p}`);

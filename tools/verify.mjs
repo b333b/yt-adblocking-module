@@ -40,6 +40,60 @@ for (const m of moduleText.matchAll(/script-path\s*=\s*([^,\s]+)/g)) {
 }
 if (moduleOk) add("PASS", "Module only references this fork and allowlisted hosts.");
 
+// ---------- A2. module section / MITM hostname / rule policy checks ----------
+// Guards against a future upstream change adding a section, MITM host, or
+// [Rule] policy that this fork's config was never reviewed against.
+const ALLOWED_SECTIONS = new Set(["Rule", "URL Rewrite", "Map Local", "Script", "MITM", "Header Rewrite", "Body Rewrite"]);
+const RULE_OPTIONS = new Set(["no-resolve", "extended-matching", "pre-matching"]);
+function parseSections(text) {
+  const sections = {};
+  let current = null;
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line || /^[#/;]/.test(line)) continue;
+    const m = /^\[(.+)\]$/.exec(line);
+    if (m) { current = m[1].trim(); sections[current] ??= []; }
+    else if (current) sections[current].push(line);
+  }
+  return sections;
+}
+const sections = parseSections(moduleText);
+let sectionsOk = true;
+for (const name of Object.keys(sections)) {
+  if (!ALLOWED_SECTIONS.has(name)) { sectionsOk = false; add("FAIL", `Module has a section [${name}] this fork doesn't expect.`); }
+}
+if (sectionsOk) add("PASS", "Module only uses expected section types.");
+
+let ruleOk = true;
+for (const line of sections["Rule"] ?? []) {
+  const fields = line.split(",").map((f) => f.trim());
+  let policy = "";
+  for (let i = fields.length - 1; i >= 0; i--) {
+    if (!RULE_OPTIONS.has(fields[i].toLowerCase())) { policy = fields[i]; break; }
+  }
+  if (!/^REJECT/i.test(policy)) { ruleOk = false; add("FAIL", `[Rule] routes traffic to '${policy}' (only REJECT policies allowed).`); }
+}
+if (ruleOk && sections["Rule"]?.length) add("PASS", "[Rule] entries are REJECT-only.");
+
+let mitmOk = true;
+const mitmAllow = new Set((cfg.allowedMitmHosts ?? []).map((h) => h.toLowerCase()));
+if (mitmAllow.size === 0) { mitmOk = false; add("FAIL", "fork.config.json has no allowedMitmHosts list."); }
+let mitmSeen = 0;
+for (const line of sections["MITM"] ?? []) {
+  const eq = line.indexOf("=");
+  if (eq < 0 || line.slice(0, eq).trim().toLowerCase() !== "hostname") continue;
+  const value = line.slice(eq + 1).replace(/%APPEND%|%INSERT%/g, "");
+  for (const entry of value.split(",").map((e) => e.trim()).filter(Boolean)) {
+    if (entry.startsWith("-")) continue; // "-host" excludes a host: always safe
+    mitmSeen++;
+    // Exact match against the reviewed MITM list. The egress allowlist is far
+    // broader (all of googleapis.com), so it must not be used here.
+    if (!mitmAllow.has(entry.toLowerCase())) { mitmOk = false; add("FAIL", `[MITM] hostname '${entry}' is not in allowedMitmHosts.`); }
+  }
+}
+if (mitmSeen === 0) { mitmOk = false; add("FAIL", "Module has no [MITM] hostname entries."); }
+if (mitmOk) add("PASS", "[MITM] hostnames match allowedMitmHosts exactly.");
+
 // ---------- B. license ----------
 const lic = readFileSync(join(ROOT, "LICENSE"), "utf8");
 if (!/Apache License/i.test(lic)) add("FAIL", "Upstream LICENSE is no longer Apache-2.0 — review before redistributing.");
@@ -53,6 +107,8 @@ const SUSPICIOUS = [
   [/globalThis\s*(?:\.\s*|\[\s*["'`])\s*(\$done|\$httpClient|\$task|fetch)\b/, "global lookup of a guarded API"],
   [/\[\s*["'`](\$done|\$httpClient|\$task)["'`]\s*\]/, "bracket lookup of a guarded API"],
   [/\b(XMLHttpRequest|WebSocket|EventSource|sendBeacon|importScripts)\b/, "browser networking API"],
+  [/(?<![\w$.])atob\s*\(/, "atob() (possible base64-encoded payload)"],
+  [/\$httpAPI\b/, "$httpAPI usage"],
 ];
 
 const scripts = Object.keys(lock.files).filter((p) => p.endsWith(".js"));
@@ -205,6 +261,17 @@ for (const p of scripts) {
       else add("PASS", `${p} [${ep}]: no egress outside allowlist.`);
     }
   }
+}
+
+// ---------- E. run-on check ----------
+// Every built script must refuse to touch a request from a host outside the MITM list.
+for (const p of scripts) {
+  const built = readFileSync(join(ROOT, p), "utf8");
+  const r = await runScript(built, { url: "https://api.run-on-canary.invalid/v1/x", headers: UA }, seededStore());
+  const blocked = r.events.some((e) => e.type === "run-on-check");
+  const passedThrough = r.calls.done.length === 1 && r.calls.done[0] && Object.keys(r.calls.done[0]).length === 0;
+  if (blocked && passedThrough) add("PASS", `${p}: refuses to run on hosts outside the MITM list.`);
+  else add("FAIL", `${p}: run-on check did not block a foreign host (events=${r.events.length}, done=${JSON.stringify(r.calls.done)}).`);
 }
 
 // ---------- report ----------

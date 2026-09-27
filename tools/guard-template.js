@@ -10,6 +10,7 @@
 ;(function (__G) {
   var ALLOW = __ALLOW_JSON__;
   var ONESIE = __ONESIE_JSON__;
+  var RUN_ON = __RUN_ON_JSON__;
 
   function report(evt) {
     try { console.log("[relay-guard] blocked " + evt.type + " -> " + evt.host); } catch (_) {}
@@ -35,10 +36,11 @@
     return h;
   }
 
-  function hostAllowed(h) {
+  function hostAllowed(h, list) {
     if (!h) return false;
-    for (var i = 0; i < ALLOW.length; i++) {
-      var d = ALLOW[i];
+    list = list || ALLOW;
+    for (var i = 0; i < list.length; i++) {
+      var d = list[i];
       if (h === d || (h.length > d.length && h.slice(-(d.length + 1)) === "." + d)) return true;
     }
     return false;
@@ -64,6 +66,16 @@
   } catch (_) {}
 
   function short(v) { return String(v == null ? "" : v).slice(0, 120); }
+
+  // Refuse to run at all on a host outside this module's own MITM list. The
+  // [Script] pattern already restricts this, but if a hostname is ever MITM'd
+  // more broadly than the pattern expects, fail closed here instead of relying
+  // on the pattern alone. An empty list also fails closed.
+  if (!RUN_ON.length || !hostAllowed(hostOf(reqUrl), RUN_ON)) {
+    report({ type: "run-on-check", host: hostOf(reqUrl) || short(reqUrl), request: short(reqUrl) });
+    if (typeof $done === "function") $done({});
+    return;
+  }
 
   // Mirrors upstream's own non-relay path: forget the cached Onesie key so the
   // app falls back to /youtubei/v1/player, which the response script handles locally.
