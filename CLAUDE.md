@@ -21,6 +21,10 @@ The wrapper blocks all network egress outside Google hosts. It turns a blocked
 relay attempt into upstream's own local fallback path, so ad blocking keeps
 working with no third party in the loop.
 
+## Privacy rules for this repo
+
+Never commit traffic captures (Shadowrocket .db logs, HAR files) or anything copied out of them: they contain device IDs, UUIDs, coordinates, auth tokens and cookies. When quoting a request, strip the query string or replace values with placeholders.
+
 ## Layout
 
 | Path | Role |
