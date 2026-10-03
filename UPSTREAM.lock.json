@@ -1,5 +1,5 @@
 {
-  "fingerprint": "6ad7f217129990849d241ce3f5f7bdb73c46bb5991d1ce4d17116c07d4859c7d",
+  "fingerprint": "88cd9a727817e8f5f4b87369cb4dc918a0c076fc969b1f6dda5290b54a86958c",
   "guardVersion": "1.1.0",
   "fork": {
     "owner": "b333b",
@@ -23,6 +23,17 @@
     "runOn": [
       "googlevideo.com",
       "youtubei.googleapis.com"
+    ]
+  },
+  "metadata": {
+    "argumentsTranslated": true,
+    "argumentsDescTranslated": true,
+    "argumentNames": [
+      "Block_Upload_Button",
+      "Block_Clip_Button",
+      "Block_Shorts_Button",
+      "Subtitle_Translation_Language",
+      "Debug_Mode"
     ]
   },
   "files": {
