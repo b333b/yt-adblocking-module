@@ -94,6 +94,24 @@ for (const line of sections["MITM"] ?? []) {
 if (mitmSeen === 0) { mitmOk = false; add("FAIL", "Module has no [MITM] hostname entries."); }
 if (mitmOk) add("PASS", "[MITM] hostnames match allowedMitmHosts exactly.");
 
+// ---------- A3. module metadata ----------
+// #!name/#!desc must be this fork's; every {{{placeholder}}} must name a
+// declared #!arguments entry, or Shadowrocket would pass it through unfilled.
+const headerOf = (key) => new RegExp(`^#!${key}=(.*)$`, "m").exec(moduleText)?.[1];
+let metaOk = true;
+if (cfg.metadata) {
+  for (const key of ["name", "desc"]) {
+    if (headerOf(key) !== cfg.metadata[key]) { metaOk = false; add("FAIL", `Module #!${key} is not the one set in fork.config.json.`); }
+  }
+}
+const declared = new Set((headerOf("arguments") ?? "").split(",").map((p) => p.split(":")[0].trim()).filter(Boolean));
+for (const m of moduleText.matchAll(/\{\{\{([^}]*)\}\}\}/g)) {
+  if (!declared.has(m[1])) { metaOk = false; add("FAIL", `Placeholder {{{${m[1]}}}} has no matching #!arguments entry.`); }
+}
+if (metaOk) add("PASS", "Module name/desc match the config, and every argument placeholder is declared.");
+if (lock.metadata && !lock.metadata.argumentsTranslated) add("WARN", "Upstream #!arguments changed, so it was published untranslated. Update metadata.arguments in fork.config.json.");
+if (lock.metadata && !lock.metadata.argumentsDescTranslated) add("WARN", "Upstream #!arguments-desc changed, so it was published untranslated. Update metadata.argumentsDesc in fork.config.json.");
+
 // ---------- B. license ----------
 const lic = readFileSync(join(ROOT, "LICENSE"), "utf8");
 if (!/Apache License/i.test(lic)) add("FAIL", "Upstream LICENSE is no longer Apache-2.0 — review before redistributing.");

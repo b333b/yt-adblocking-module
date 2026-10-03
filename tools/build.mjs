@@ -90,7 +90,7 @@ for (const [url, p] of referenced) {
   const v = files[p].builtSha256.slice(0, 8);
   mod = mod.split(url).join(`https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${p}?v=${v}`);
 }
-mod = mod.replace(/^#!name=(.*)$/m, (_, n) => `#!name=${n.trim()}${cfg.module.nameSuffix}`);
+const metadata = applyMetadata();
 const lines = mod.split(/\r?\n/);
 let insertAt = 0;
 while (insertAt < lines.length && lines[insertAt].startsWith("#!")) insertAt++;
@@ -116,12 +116,61 @@ const lock = {
   module: { source: cfg.module.source, output: cfg.module.output, upstreamSha256: sha256(moduleSrc) },
   license: { upstreamSha256: sha256(readFileSync(lic)) },
   mitm: { runOn },
+  metadata,
   files,
 };
 writeFileSync(lockPath, JSON.stringify(lock, null, 2) + "\n");
 console.log(JSON.stringify({ changed: true, upstreamSha, files: Object.keys(files) }));
 
 // ---- helpers ----
+// Sets #!name/#!desc from fork.config.json. #!arguments and #!arguments-desc are
+// translated only while upstream's text still matches the reviewed original
+// exactly; any upstream change publishes upstream's text untranslated.
+function applyMetadata() {
+  const meta = cfg.metadata;
+  if (!meta) return null;
+  const header = (key) => new RegExp(`^#!${key}=(.*)$`, "m");
+  const setHeader = (key, value) => {
+    const line = `#!${key}=${value}`;
+    if (header(key).test(mod)) mod = mod.replace(header(key), () => line);
+    else {
+      const ls = mod.split(/\r?\n/);
+      let at = 0;
+      while (at < ls.length && ls[at].startsWith("#!")) at++;
+      ls.splice(at, 0, line);
+      mod = ls.join("\n");
+    }
+  };
+  setHeader("name", meta.name);
+  setHeader("desc", meta.desc);
+
+  const result = { argumentsTranslated: false, argumentsDescTranslated: false, argumentNames: [] };
+  const args = header("arguments").exec(mod)?.[1];
+  if (args != null && meta.arguments && args === meta.arguments.upstream) {
+    const rename = meta.arguments.rename;
+    const translated = args.split(",").map((pair) => {
+      const i = pair.indexOf(":");
+      const name = i < 0 ? pair : pair.slice(0, i);
+      if (!rename[name]) fail(`metadata.arguments.rename has no entry for '${name}'.`);
+      return rename[name] + (i < 0 ? "" : pair.slice(i));
+    }).join(",");
+    setHeader("arguments", translated);
+    for (const [from, to] of Object.entries(rename)) mod = mod.split(`{{{${from}}}}`).join(`{{{${to}}}}`);
+    result.argumentsTranslated = true;
+  } else if (args != null) {
+    console.error("build: upstream #!arguments changed; publishing it untranslated.");
+  }
+  const desc = header("arguments-desc").exec(mod)?.[1];
+  if (desc != null && meta.argumentsDesc && desc === meta.argumentsDesc.upstream) {
+    setHeader("arguments-desc", meta.argumentsDesc.translated);
+    result.argumentsDescTranslated = true;
+  } else if (desc != null) {
+    console.error("build: upstream #!arguments-desc changed; publishing it untranslated.");
+  }
+  const finalArgs = header("arguments").exec(mod)?.[1] ?? "";
+  result.argumentNames = finalArgs ? finalArgs.split(",").map((p) => p.split(":")[0].trim()) : [];
+  return result;
+}
 function parseArgs(a) {
   const o = {};
   for (let i = 0; i < a.length; i++) {

@@ -30,11 +30,11 @@ Never commit traffic captures (Shadowrocket .db logs, HAR files) or anything cop
 | Path | Role |
 |---|---|
 | `.github/workflows/sync-upstream.yml` | Every 6 h or manually (`force` input): clone upstream, build, verify, publish. `PUBLISH_MODE=direct` pushes to `main`; `pr` opens a PR. On failure it opens an issue with the report and publishes nothing. |
-| `tools/build.mjs` | Reads the upstream module and collects referenced scripts via `rawPrefixes`. Wraps each `.js` in the guard and rewrites `script-path`s to this repo's raw URLs with `?v=<hash8>`. Extracts MITM hosts into `RUN_ON`, copies `LICENSE`, and writes `UPSTREAM.lock.json`. Skips the build when the fingerprint is unchanged. The fingerprint covers the template, config, owner/repo, module and script hashes. |
+| `tools/build.mjs` | Reads the upstream module and collects referenced scripts via `rawPrefixes`. Wraps each `.js` in the guard and rewrites `script-path`s to this repo's raw URLs with `?v=<hash8>`. Sets the module's `#!name`/`#!desc` and translates `#!arguments`/`#!arguments-desc` from `metadata` (see below). Extracts MITM hosts into `RUN_ON`, copies `LICENSE`, and writes `UPSTREAM.lock.json`. Skips the build when the fingerprint is unchanged. The fingerprint covers the template, config, owner/repo, module and script hashes. |
 | `tools/guard-template.js` | The wrapper. Placeholders are filled by `build.mjs`. |
 | `tools/verify.mjs` | Static and behavioural checks. Exit 0 means safe to publish; exit 1 means it needs review. |
-| `fork.config.json` | Allowlists, upstream location, Onesie cache keys, guard version. |
-| `UPSTREAM.lock.json` | **Generated.** Upstream commit, hashes, `mitm.runOn`. |
+| `fork.config.json` | Allowlists, upstream location, Onesie cache keys, guard version, module metadata (English name, description, argument translations). |
+| `UPSTREAM.lock.json` | **Generated.** Upstream commit, hashes, `mitm.runOn`, whether the arguments were translated. |
 | `YouTubeAds.sgmodule`, `Script/Youtube/*.js`, `LICENSE` | **Generated.** Never edit by hand. |
 
 ## Guard behaviour (relay-guard 1.1.0)
@@ -61,6 +61,19 @@ or any subdomain. This list is deliberately broader than the MITM list.
 These wrapped versions are passed into the upstream code as function
 parameters, shadowing the globals. Every block is logged as `[relay-guard] blocked …`.
 
+## Module metadata
+
+The built module always gets `#!name` and `#!desc` from `metadata` in
+`fork.config.json`. `#!arguments` and `#!arguments-desc` are translated to
+English only while upstream's line still matches `metadata.*.upstream` exactly.
+If upstream changes either line, it is published untranslated (verify WARNs,
+nothing is blocked). To translate it again, copy upstream's new line into
+`upstream` and update `rename` / `translated`.
+
+Argument names use underscores instead of spaces (`Block_Upload_Button`).
+Renaming an argument also renames every `{{{placeholder}}}` in `[Script]`, and
+resets the value anyone had customised in Shadowrocket back to the default.
+
 ## Verify checks
 
 **A. Module**
@@ -69,6 +82,11 @@ parameters, shadowing the globals. Every block is logged as `[relay-guard] block
 - Only the sections `Rule`, `URL Rewrite`, `Map Local`, `Script`, `MITM`, `Header Rewrite` and `Body Rewrite` are allowed.
 - `[Rule]` entries must use REJECT policies only.
 - `[MITM]` hostnames must match `allowedMitmHosts` exactly, and at least one must be present.
+
+**A3. Metadata**
+- `#!name` and `#!desc` match `metadata` in the config.
+- Every `{{{placeholder}}}` names a declared `#!arguments` entry (FAIL otherwise).
+- WARN when `#!arguments` or `#!arguments-desc` was published untranslated.
 
 **B. License.** Upstream must still be Apache-2.0.
 
@@ -149,3 +167,6 @@ The defences, each covered by the checks above:
     - Added verify section E.
   - Guard bumped to 1.1.0.
   - A separate Python audit pipeline was proposed and rejected as a duplicate of this one.
+- **2026-10:**
+  - Module renamed to "YouTube — AdBlock" with an English description; arguments and their help text translated to English (dropped the " (relay-free fork)" name suffix).
+  - Added verify section A3. Backup of `main` before this change: branch `backup-2026-10-02`.
