@@ -1,4 +1,4 @@
-#!name=YouTube — AdBlock
+#!name=[AdBlock] YouTube
 #!desc=Removes ads from YouTube and YouTube Music apps
 #!arguments=Block_Upload_Button:true,Block_Clip_Button:true,Block_Shorts_Button:false,Subtitle_Translation_Language:off,Debug_Mode:false
 #!arguments-desc=- Block options: [true, false] \n- Translation option: [language code, off] \n\n1. Language codes follow Google Translate language codes; set to off to turn translation off\n2. Debug mode writes more detailed logs
