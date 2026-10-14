@@ -13,7 +13,7 @@
     "output": "YouTubeAds.sgmodule"
   },
   "metadata": {
-    "name": "YouTube — AdBlock",
+    "name": "[AdBlock] YouTube",
     "desc": "Removes ads from YouTube and YouTube Music apps",
     "arguments": {
       "upstream": "屏蔽上传按钮:true,屏蔽选段按钮:true,屏蔽Shorts按钮:false,字幕翻译语言:off,启用调试模式:false",

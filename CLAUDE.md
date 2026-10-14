@@ -170,3 +170,4 @@ The defences, each covered by the checks above:
 - **2026-10:**
   - Module renamed to "YouTube — AdBlock" with an English description; arguments and their help text translated to English (dropped the " (relay-free fork)" name suffix).
   - Added verify section A3. Backup of `main` before this change: branch `backup-2026-10-02`.
+  - Module renamed to "[AdBlock] YouTube" (`metadata.name`).
